@@ -95,6 +95,11 @@ action drop_act()
 {
     drop();
 }
+table drop_table{
+    actions{
+        drop_act;
+    }
+}
 table ip_table{
     reads{
         ipv4_head.dstAddr : exact;
@@ -128,14 +133,26 @@ table core_table{
 
 control ingress {
     if(eth_head.etype == 0x0800){
-        apply(ip_table);
+        if(valid(ipv4_head)){
+           apply(ip_table);
+	} else {
+	   apply(drop_table);	
+        }
     }else{
         if(eth_head.etype == 0x8864 or eth_head.etype == 0x8863){
-            if(pppoe_head.ppp_proto == 0x0021){
-                apply(core_table);
-            }else{
-                apply(ppp_table);
-            }
+	    if (valid(pppoe_head)){
+               if(pppoe_head.ppp_proto == 0x0021){
+	           if (valid(ipv4_head)) {
+		     apply(core_table);
+		   } else {
+		     apply(drop_table);
+                   }
+               }else{
+                   apply(ppp_table);
+               }
+	    } else {
+	       apply(drop_table);
+	    }
         }
     }
 }
